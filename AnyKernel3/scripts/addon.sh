@@ -21,10 +21,10 @@ case "$1" in
   ;;
   post-restore)
     TMPDIR=/dev/unitytmp; OUTFD=$(ps | grep -v 'grep' | grep -oE 'update(.*)' | cut -d" " -f3)
-    [ "$(ls -A $(dirname $C)/addon.d/*-unityrd 2>/dev/null)" -a -d $(dirname $C)/addon.d/unitytools ] || { rm -rf $(dirname $C)/addon.d/unitytools; rm -f $0; exit 0; }
+    [ "$(ls -A $(dirname $C)/addon.d/*-unityak 2>/dev/null)" -a -d $(dirname $C)/addon.d/unitytools ] || { rm -rf $(dirname $C)/addon.d/unitytools; rm -f $0; exit 0; }
     mkdir -p $TMPDIR
-    for i in $(dirname $C)/addon.d/*-unityrd; do cp -f $i $TMPDIR; done
-    [ "$(ls -A $(dirname $C)/addon.d/*-unityrdfiles 2>/dev/null)" ] && for i in $(dirname $C)/addon.d/*-unityrdfiles; do cp -rf $i $TMPDIR; done
+    for i in $(dirname $C)/addon.d/*-unityak; do cp -f $i $TMPDIR; done
+    [ "$(ls -A $(dirname $C)/addon.d/*-unityakfiles 2>/dev/null)" ] && for i in $(dirname $C)/addon.d/*-unityakfiles; do cp -rf $i $TMPDIR; done
     cp -R $(dirname $C)/addon.d/unitytools $TMPDIR
     sed -i "s|OUTFD=|OUTFD=$OUTFD|" $TMPDIR/unitytools/functions
     chmod -R 0755 $TMPDIR/unitytools

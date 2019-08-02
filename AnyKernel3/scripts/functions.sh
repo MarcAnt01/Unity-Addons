@@ -81,124 +81,6 @@ find_block() {
   return 1
 }
 
-find_boot_image() {
-  # Check A/B slot
-  SLOT=`grep_cmdline androidboot.slot_suffix`
-  if [ -z $SLOT ]; then
-    SLOT=`grep_cmdline androidboot.slot`
-    [ -z $SLOT ] || SLOT=_${SLOT}
-  fi
-  [ -z $SLOT ] || ui_print "   Current boot slot: $SLOT"
-  
-  # Swap the slot
-  if [ ! -z $SLOT ]; then [ $SLOT = _a ] && SLOT=_b || SLOT=_a; fi
-  
-  BOOTIMAGE=
-  if [ ! -z $SLOT ]; then
-    BOOTIMAGE=`find_block ramdisk$SLOT recovery_ramdisk$SLOT boot$SLOT`
-  else
-    BOOTIMAGE=`find_block ramdisk recovery_ramdisk kern-a android_boot kernel boot lnx bootimg boot_a`
-  fi
-  if [ -z $BOOTIMAGE ]; then
-    # Lets see what fstabs tells me
-    BOOTIMAGE=`grep -v '#' /etc/*fstab* | grep -E '/boot[^a-zA-Z]' | grep -oE '/dev/[a-zA-Z0-9_./-]*' | head -n 1`
-  fi
-}
-
-flash_image() {
-  # Make sure all blocks are writable
-  magisk --unlock-blocks 2>/dev/null
-  case "$1" in
-    *.gz) local COMMAND="magiskboot decompress '$1' - 2>/dev/null";;
-    *)    local COMMAND="cat '$1'";;
-  esac
-  if [ -b "$2" ]; then
-    local BLOCK=true
-    local img_sz=`stat -c '%s' "$1"`
-    local blk_sz=`blockdev --getsize64 "$2"`
-    [ $img_sz -gt $blk_sz ] && return 1
-  else
-    local BLOCK=false
-  fi
-  if $BOOTSIGNED; then
-    ui_print "   Signing boot image"
-    eval $COMMAND | $BOOTSIGNER /boot $1 $BOOTDIR/avb/verity.pk8 $BOOTDIR/avb/verity.x509.pem boot-new-signed.img
-    ui_print "   Flashing new boot image"
-    $BLOCK && dd if=/dev/zero of="$2" 2>/dev/null
-    dd if=boot-new-signed.img of="$2"
-  elif $BLOCK; then
-    ui_print "   Flashing new boot image"
-    eval $COMMAND | cat - /dev/zero 2>/dev/null | dd of="$2" bs=4096 2>/dev/null
-  else
-    ui_print "   Not block device, storing image"
-    eval $COMMAND | dd of="$2" bs=4096 2>/dev/null
-  fi
-  return 0
-}
-
-sign_chromeos() {
-  ui_print "   Signing ChromeOS boot image"
-
-  echo > empty
-  ./chromeos/futility vbutil_kernel --pack new-boot.img.signed \
-  --keyblock ./chromeos/kernel.keyblock --signprivate ./chromeos/kernel_data_key.vbprivk \
-  --version 1 --vmlinuz new-boot.img --config empty --arch arm --bootloader empty --flags 0x1
-
-  rm -f empty new-boot.img
-  mv new-boot.img.signed new-boot.img
-}
-
-unpack_ramdisk() {
-  find_boot_image
-  ui_print " "
-  [ -z $BOOTIMAGE ] && abort "   ! Unable to detect target image !"
-  ui_print "   Checking boot image signature..."
-  BOOTSIGNER="/system/bin/dalvikvm -Xbootclasspath:/system/framework/core-oj.jar:/system/framework/core-libart.jar:/system/framework/conscrypt.jar:/system/framework/bouncycastle.jar -Xnodex2oat -Xnoimage-dex2oat -cp $UF/tools/avb/BootSignature_Android.jar com.android.verity.BootSignature"
-  BOOTSIGNED=false; CHROMEOS=false
-  mkdir -p $RD
-  cd $BOOTDIR
-  dd if=$BOOTIMAGE of=boot.img
-  eval $BOOTSIGNER -verify boot.img 2>&1 | grep "VALID" && BOOTSIGNED=true
-  $BOOTSIGNED && ui_print "   Boot image is signed with AVB 1.0"
-  rm -f boot.img  
-  magiskinit -x magisk magisk
-  ui_print "   Unpacking boot image..."
-  magiskboot unpack "$BOOTIMAGE"
-  case $? in
-    1 ) ui_print "   ! Unable to unpack boot image !"; abort "   ! Aborting !";;
-    2 ) ui_print "   ChromeOS boot image detected"; CHROMEOS=true;;
-  esac
-  # Test patch status
-  ui_print "   Checking ramdisk status"
-  if [ -e ramdisk.cpio ]; then
-    magiskboot cpio ramdisk.cpio test
-    STATUS=$?
-  else
-    # Stock A only system-as-root
-    STATUS=0
-  fi
-  cd ramdisk
-  magiskboot cpio ../ramdisk.cpio "extract"
-  ui_print " "
-}
-
-repack_ramdisk() {
-  ui_print "   Repacking ramdisk"
-  cd $RD
-  find . | cpio -H newc -o > ../ramdisk.cpio
-  cd ..
-  ui_print "   Repacking boot image"
-  if [ $((STATUS & 4)) -ne 0 ]; then
-    ui_print "   Compressing ramdisk"
-    magiskboot cpio ramdisk.cpio compress
-  fi
-  magiskboot repack "$BOOTIMAGE" || abort "   ! Unable to repack boot image!"
-  $CHROMEOS && sign_chromeos
-  flash_image new-boot.img "$BOOTIMAGE" || abort "   ! Insufficient partition size"
-  magiskboot cleanup
-  rm -f new-boot.img
-}
-
 cp_ch() {
   local OPT=`getopt -o inr -- "$@"` BAK=true UBAK=true REST=true BAKFILE=$INFORD FOL=false
   eval set -- "$OPT"
@@ -267,31 +149,54 @@ api_level_arch_detect() {
   if [ "$ABILONG" = "x86_64" ]; then ARCH=x64; ARCH32=x86; IS64BIT=true; fi;
 }
 
+if [ ! "$(getprop 2>/dev/null)" ]; then
+  getprop() {
+    local propval="$(grep_prop $1 /default.prop 2>/dev/null)";
+    test "$propval" || local propval="$(grep_prop $1 2>/dev/null)";
+    test "$propval" && echo "$propval" || echo "";
+  }
+elif [ ! "$(getprop ro.product.device 2>/dev/null)" -a ! "$(getprop ro.build.product 2>/dev/null)" ]; then
+  getprop() {
+    ($(which getprop) | grep "$1" | cut -d[ -f3 | cut -d] -f1) 2>/dev/null;
+  }
+fi;
+
 while [ "$(ps | grep -E 'magisk/addon.d.sh|/addon.d/99-flashaft' | grep -v 'grep')" ]; do
   sleep 1
 done
-TMPDIR=/dev/unitytmp; BOOTDIR=$TMPDIR/unitytools; RD=$BOOTDIR/ramdisk; OUTFD=
+TMPDIR=/dev/unitytmp; RD=$TMPDIR/unitytools/ramdisk; OUTFD=
+mkdir -p $(dirname $RD)
 setup_flashable
 ui_print " "
 ui_print "- Unity Ramdisk Addon Restore"
 recovery_actions
-unpack_ramdisk
 api_level_arch_detect
-for i in $TMPDIR/*-unityrd; do
-  MODID="$(echo $(basename $i) | sed "s/-unityrd//")"; INFORD="$RD/$MODID-files"
+COUNT=0
+for i in $TMPDIR/*-unityak; do
+  COUNT=$((COUNT + 1))
+  MODID="$(echo $(basename $i) | sed "s/-unityak//")"; INFORD="$RD/$MODID-files"; RESET=false
   ui_print "   Restoring $MODID modifications..."
-  echo "#$MODID-UnityIndicator" >> $RD/init.rc
-  . $i
-  [ -d $TMPDIR/$MODID-unityrdfiles ] || continue
-  for FILE in $(find $TMPDIR/$MODID-unityrdfiles -type f 2>/dev/null | sed "s|$TMPDIR/$MODID-unityrdfiles|/ramdisk|" 2>/dev/null); do
-    cp_ch $TMPDIR/addon/Ramdisk-Patcher$FILE $BOOTDIR$FILE
+  for j in $(sed -n '/^# shell variables/,/^$/p' $i | sed '1d;$d'); do
+    j=$(echo $j | sed "s|^#||")
+    j1=$(echo $j | sed "s|=.*||")
+    j2=$(echo $j | sed "s|.*=||")
+    if [ -z $j1 ]; then
+      eval $j
+    elif [ "$(eval echo \$$j1)" != "$j2" ]; then
+      RESET=true
+    fi
   done
+  
+  [ $COUNT -eq 1 ] && { . $TMPDIR/ak3-core; dump_boot; }
+  $RESET && { write_boot; reset_ak; dump_boot; }
+  
+  echo "#$MODID-UnityIndicator" >> $RD/init.rc
+  [ -d $TMPDIR/$MODID-unityakfiles ] && { mkdir $home/rdtmp; cp -af $TMPDIR/$MODID-unityakfiles/* $home/rdtmp; }
+  . $i
   [ ! -s $INFORD ] && rm -f $INFORD
 done
-repack_ramdisk
+write_boot
 recovery_cleanup
 rm -rf $TMPDIR
-# Swap the slot back for other scripts (like magisk)
-if [ ! -z $SLOT ]; then [ $SLOT = _a ] && SLOT=_b || SLOT=_a; fi
 ui_print "   Done!"
 exit 0
