@@ -7,8 +7,6 @@ if $MAGISK; then
   sleep 2
 fi
 
-rm -f $TMPDIR/addon/AnyKernel3/ramdisk/placeholder
-
 # Only run if needed
 if ! $DIRSEPOL && [ ! "$(ls -A $TMPDIR/addon/AnyKernel3/ramdisk 2>/dev/null)" ] && [ ! "$(ls -A $TMPDIR/addon/AnyKernel3/patch 2>/dev/null)" ] && [ ! "$(sed -n '/^# Add your custom install logic here - do not remove this line$/,$p' anykernel.sh | sed '1d;/^#/d;/^$/d')" ]; then
   rm -rf $TMPDIR/addon/AnyKernel3

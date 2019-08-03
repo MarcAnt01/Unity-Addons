@@ -18,6 +18,7 @@ fi;
 
 mv -f $TMPDIR/addon/AnyKernel3/uninstall.sh $TMPDIR/addon/AnyKernel3/custom_uninstall.sh
 mv -f $TMPDIR/addon/AnyKernel3/scripts/* $TMPDIR/addon/AnyKernel3/
+rm -f $TMPDIR/addon/AnyKernel3/ramdisk/placeholder $TMPDIR/addon/AnyKernel3/patch/placeholder
 
 for i in $(sed -n '/^# shell variables/,/^$/p' $TMPDIR/addon/AnyKernel3/anykernel.sh | sed '1d;$d'); do
   eval $i
