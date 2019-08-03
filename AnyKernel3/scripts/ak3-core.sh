@@ -95,7 +95,7 @@ split_boot() {
 
 # unpack_ramdisk (extract ramdisk only)
 unpack_ramdisk() {
-  [ "$(ls $split_img/ramdisk.cpio.* 2>/dev/null)" ] || return
+  [ "$(ls $split_img/ramdisk.cpio* 2>/dev/null)" ] || return
 
   local comp;
 
@@ -149,13 +149,13 @@ dump_boot() {
 ### write_boot functions:
 # repack_ramdisk (repack ramdisk only)
 repack_ramdisk() {
-  [ "$(ls $split_img/ramdisk.cpio.* 2>/dev/null)" ] || return
+  [ "$(ls $split_img/ramdisk.cpio* 2>/dev/null)" ] || return
 
   local comp packfail mtktype;
 
   cd $home;
   case $ramdisk_compression in
-    auto|"") comp=$(ls $split_img/ramdisk.cpio.* 2>/dev/null | grep -v 'mtk' | rev | cut -d. -f1 | rev);;
+    auto|"") comp=$(ls $split_img/ramdisk.cpio* 2>/dev/null | grep -v 'mtk' | rev | cut -d. -f1 | rev | sed "s/cpio//");;
     none|cpio) comp="";;
     gz) comp=gzip;;
     lzo) comp=lzop;;
