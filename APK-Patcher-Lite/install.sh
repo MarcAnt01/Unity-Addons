@@ -13,7 +13,7 @@
 #   Please rename the .sh to the APK name you want to work on.
 
 # working directory variables
-ap=$TMPDIR/addon/APK-Patcher;
+ap=$MODPATH/common/addon/APK-Patcher;
 patch=$ap/patch;
 script=$ap/script;
 

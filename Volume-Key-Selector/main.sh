@@ -1,7 +1,7 @@
 # External Tools
 
-chmod -R 0755 $TMPDIR/addon/Volume-Key-Selector/tools
-cp -R $TMPDIR/addon/Volume-Key-Selector/tools $UF 2>/dev/null
+chmod -R 0755 $MODPATH/common/addon/Volume-Key-Selector/tools
+cp -R $MODPATH/common/addon/Volume-Key-Selector/tools $UF 2>/dev/null
 
 keytest() {
   ui_print "- Vol Key Test"

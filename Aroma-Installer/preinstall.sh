@@ -22,7 +22,7 @@ else
   fi
   ui_print "   Creating Aroma installer and open recovery script..."
   cp -f $ZIPFILE $CACHEDIR/$MODID.zip
-  cd $TMPDIR/addon/Aroma-Installer
+  cd $MODPATH/common/addon/Aroma-Installer
   sed -i -e "2i MODID=$MODID" -e "2i CACHEDIR=$CACHEDIR" META-INF/com/google/android/update-binary-installer
   chmod -R 0755 tools
   cp -R tools $UF 2>/dev/null
