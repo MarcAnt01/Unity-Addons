@@ -10,4 +10,5 @@
 
 ## Included Binaries/Credits:
 * sesearch by [xmikos @Github ](https://github.com/xmikos/setools-android)
-* xmlstarlet compiled by [james34602 @Github](https://github.com/james34602/)
+* xmlstarlet compiled by [james34602 @Github](https://github.com/james34602)
+* curl compiled by me [here](https://github.com/Zackptg5/curl-boringssl-android)
