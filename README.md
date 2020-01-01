@@ -2,9 +2,8 @@
 Repository of Addons for [Unity Installer](https://github.com/Zackptg5/Unity).
 
 ## Usage
-- In the root of your unity installer zip, make an `addon` folder
-- Copy the addons of choice from this repo into the created addon folder (Ex: `addon/Volume-Key-Selector`)
 - Read the README in each repo addon folder to understand its purpose
+- You can delete the folders of the addons you don't need
 - Don't delete or modify anything in the addon folder unless the readme states otherwise
 - Note that you can compress the addon folder into a tar.xz file to save space.
 
